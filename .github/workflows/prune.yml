@@ -1,0 +1,40 @@
+name: Prune unsupported contracts
+
+# Weekly (ticket 0099): removes channel entries for contracts that omendb-contracts.json no longer
+# lists, keeping the newest KEEP of them, and deletes the releases of the contracts it removed.
+# To retire an app build's contract, delete its entry from omendb-contracts.json.
+
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  KEEP: 3
+
+jobs:
+  prune:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prune the channel and old releases
+        run: |
+          set -euo pipefail
+          before=$(python3 -c 'import json; print(" ".join(sorted({e["mechanicsContractDigest"] for e in json.load(open("channels/stable.json"))["entries"]})))')
+          python3 scripts/omendb_release.py prune omendb-contracts.json channels/stable.json --keep "$KEEP"
+          after=$(python3 -c 'import json; print(" ".join(sorted({e["mechanicsContractDigest"] for e in json.load(open("channels/stable.json"))["entries"]})))')
+          for digest in $before; do
+            case " $after " in *" $digest "*) continue ;; esac
+            prefix="omendb/$(printf '%s' "$digest" | shasum -a 256 | cut -c1-8)/"
+            for tag in $(gh release list --limit 500 --json tagName --jq ".[] | select(.tagName | startswith(\"$prefix\")) | .tagName"); do
+              gh release delete "$tag" --yes --cleanup-tag
+            done
+          done
+          git config user.name "omendb-release-bot"
+          git config user.email "omendb-release-bot@users.noreply.github.com"
+          git add channels/stable.json
+          git diff --cached --quiet || { git commit -m "Prune unsupported OmenDB contracts"; git push; }

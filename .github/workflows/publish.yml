@@ -1,0 +1,192 @@
+name: Publish OmenDB bundles
+
+# Builds OmenDB distribution bundles (OmenBuilder ticket 0098) and publishes them as GitHub
+# Releases of this repo, then points channels/stable.json at them (ticket 0099, proposal F3).
+#
+# Triggers:
+# - archive-release (sent by OmenArchive's notify workflow when a release is published):
+#   build every contract in omendb-contracts.json from that archive tag.
+# - app-contract (sent when an OmenBuilder build needs content for a new contract): build the
+#   given OmenBuilder commit from the latest archive release, and add its contract to the list.
+# - workflow_dispatch: either of the above by hand.
+#
+# Builds only upload artifacts. The publish job runs only if every build succeeded and no bundle
+# is dirty, so a failed run publishes nothing and leaves the channel unchanged.
+
+on:
+  repository_dispatch:
+    types: [archive-release, app-contract]
+  workflow_dispatch:
+    inputs:
+      archive_ref:
+        description: "OmenArchive tag to build from (empty: its latest release)"
+        required: false
+      omenbuilder_rev:
+        description: "Build only this OmenBuilder commit and add its contract (empty: every supported contract)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  READ_TOKEN: ${{ secrets.OMEN_CI_READ_TOKEN }}
+
+jobs:
+  plan:
+    runs-on: macos-26
+    outputs:
+      archive_ref: ${{ steps.plan.outputs.archive_ref }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      new_contract: ${{ steps.plan.outputs.new_contract }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Plan the builds
+        id: plan
+        env:
+          ARCHIVE_REF: ${{ github.event.client_payload.archive_ref || inputs.archive_ref }}
+          OMENBUILDER_REV: ${{ github.event.client_payload.omenbuilder_rev || inputs.omenbuilder_rev }}
+          GH_TOKEN: ${{ secrets.OMEN_CI_READ_TOKEN }}
+        run: |
+          archive_ref="$ARCHIVE_REF"
+          if [ -z "$archive_ref" ]; then
+            archive_ref=$(gh release view --repo phynics/OmenArchive --json tagName --jq .tagName)
+          fi
+          test -n "$archive_ref" || { echo "::error::No OmenArchive release to build from"; exit 1; }
+          echo "archive_ref=$archive_ref" >> "$GITHUB_OUTPUT"
+          if [ -n "$OMENBUILDER_REV" ]; then
+            matrix=$(python3 -c 'import json,sys; print(json.dumps({"include":[{"rev":sys.argv[1],"digest":""}]}))' "$OMENBUILDER_REV")
+            echo "new_contract=true" >> "$GITHUB_OUTPUT"
+          else
+            matrix=$(python3 -c 'import json; c=json.load(open("omendb-contracts.json")); print(json.dumps({"include":[{"rev":e["omenBuilderRev"],"digest":e["digest"]} for e in c["contracts"]]}))')
+            echo "new_contract=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Building $matrix from OmenArchive $archive_ref"
+
+  build:
+    needs: plan
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: releases
+      - uses: actions/checkout@v4
+        with:
+          repository: phynics/Scribe_Omens
+          ref: ${{ matrix.rev }}
+          path: ws/OmenBuilder
+          token: ${{ secrets.OMEN_CI_READ_TOKEN }}
+      - name: Read the OmenBuilder commit's workspace lock
+        id: lock
+        run: |
+          lock=ws/OmenBuilder/.github/workspace.lock.json
+          for name in OmenCore ADUtilities OmenArchiveKit; do
+            rev=$(sed -n "s/.*\"$name\".*\"rev\": \"\([0-9a-f]*\)\".*/\1/p" "$lock")
+            test -n "$rev" || { echo "::error::$name is missing from $lock"; exit 1; }
+            echo "$name=$rev" >> "$GITHUB_OUTPUT"
+          done
+      - uses: actions/checkout@v4
+        with:
+          repository: phynics/OmenCore
+          ref: ${{ steps.lock.outputs.OmenCore }}
+          path: ws/OmenCore
+          token: ${{ secrets.OMEN_CI_READ_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          repository: phynics/ADUtilities
+          ref: ${{ steps.lock.outputs.ADUtilities }}
+          path: ws/ADUtilities
+          token: ${{ secrets.OMEN_CI_READ_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          repository: phynics/OmenArchiveKit
+          ref: ${{ steps.lock.outputs.OmenArchiveKit }}
+          path: ws/OmenArchiveKit
+          token: ${{ secrets.OMEN_CI_READ_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          repository: phynics/OmenArchive
+          ref: ${{ needs.plan.outputs.archive_ref }}
+          path: ws/OmenArchive
+          token: ${{ secrets.OMEN_CI_READ_TOKEN }}
+      - name: Select Xcode 27
+        run: sudo xcode-select -s /Applications/Xcode_27.0.app
+      - name: Build the bundle (clean archive only)
+        working-directory: ws/OmenBuilder
+        run: make omendb ARCHIVE=../OmenArchive OUT="$RUNNER_TEMP/bundle" ALLOW_DIRTY= EXPECT_CONTRACT="${{ matrix.digest }}"
+      - name: Check the bundle and name its release
+        run: |
+          python3 releases/scripts/omendb_release.py check-bundle "$RUNNER_TEMP/bundle"
+          archive_date=$(git -C ws/OmenArchive log -1 --format=%cd --date=format:%Y%m%d)
+          python3 releases/scripts/omendb_release.py tag "$RUNNER_TEMP/bundle" --archive-date "$archive_date" > "$RUNNER_TEMP/bundle/tag.txt"
+          echo "${{ matrix.rev }}" > "$RUNNER_TEMP/bundle/omenbuilder-rev.txt"
+          cat "$RUNNER_TEMP/bundle/tag.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/bundle
+
+  publish:
+    needs: [plan, build]
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: bundles
+      - name: Publish releases and update the channel
+        run: |
+          set -euo pipefail
+          for bundle in bundles/*/; do
+            bundle=${bundle%/}
+            tag=$(cat "$bundle/tag.txt")
+            store=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["store"]["file"])' "$bundle/manifest.json")
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "$tag is already published"
+            else
+              contract_prefix=${tag%/*}/
+              previous=$(gh release list --limit 200 --json tagName,createdAt \
+                --jq "[.[] | select(.tagName | startswith(\"$contract_prefix\"))] | sort_by(.createdAt) | last | .tagName // empty")
+              if [ -n "$previous" ]; then
+                gh release download "$previous" -p manifest.json -p records.txt -D "$RUNNER_TEMP/previous-$tag"
+                python3 scripts/omendb_release.py notes "$bundle" --previous "$RUNNER_TEMP/previous-$tag" > "$RUNNER_TEMP/notes.md"
+              else
+                python3 scripts/omendb_release.py notes "$bundle" > "$RUNNER_TEMP/notes.md"
+              fi
+              gh release create "$tag" --title "$tag" --notes-file "$RUNNER_TEMP/notes.md" \
+                "$bundle/$store" "$bundle/manifest.json" "$bundle/LICENSE.md" "$bundle/records.txt"
+            fi
+            python3 scripts/omendb_release.py update-channel channels/stable.json "$bundle/manifest.json" \
+              --manifest-url "https://github.com/${{ github.repository }}/releases/download/$tag/manifest.json"
+            if [ "${{ needs.plan.outputs.new_contract }}" = "true" ]; then
+              python3 - "$bundle/manifest.json" "$(cat "$bundle/omenbuilder-rev.txt")" <<'PY'
+          import json, sys
+          manifest = json.load(open(sys.argv[1]))
+          contracts = json.load(open("omendb-contracts.json"))
+          digest = manifest["mechanicsContractDigest"]
+          if not any(entry["digest"] == digest for entry in contracts["contracts"]):
+              contracts["contracts"].append({"digest": digest, "omenBuilderRev": sys.argv[2]})
+          with open("omendb-contracts.json", "w") as handle:
+              json.dump(contracts, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+            fi
+          done
+          git config user.name "omendb-release-bot"
+          git config user.email "omendb-release-bot@users.noreply.github.com"
+          git add channels/stable.json omendb-contracts.json
+          if git diff --cached --quiet; then
+            echo "The channel is unchanged"
+          else
+            git commit -m "Publish OmenDB bundles for OmenArchive ${{ needs.plan.outputs.archive_ref }}"
+            git push
+          fi
