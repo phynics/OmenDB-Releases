@@ -1,5 +1,8 @@
 # OmenDB-Releases
 
+To publish a content update, follow the runbook in the omen-project workspace,
+`docs/runbooks/omendb-release.md`.
+
 Published OmenDB distribution bundles for OmenBuilder (proposal F, tickets 0098–0102 in the
 omen-project workspace). This repo holds no source: its GitHub Releases hold the bundles, and
 two files route apps to them.
