@@ -19,6 +19,16 @@
       "resourceModelRevision": 1,
       "schemaVersion": "1.2.0",
       "storeSHA256": "8096c77986b83c64b1171184fd9928e518de7b91b25865281cfb6a055a75bb2d"
+    },
+    {
+      "archiveGitSHA": "d4f253e7a0e505a2c917e68ad0b7d4ebfd946cd0",
+      "builtAt": "2026-09-28T14:36:58Z",
+      "contentHash": "88617818b9cd6f816bc16f185b0261b26fed4e75e02b17e19f4923ff8aa582ee",
+      "manifestURL": "https://github.com/phynics/OmenDB-Releases/releases/download/omendb/9adacab5/20260928-88617818/manifest.json",
+      "mechanicsContractDigest": "99aa820a86ff2a3ecc0ebb5e56066568675066229128621e134341e7507d4683",
+      "resourceModelRevision": 1,
+      "schemaVersion": "1.2.0",
+      "storeSHA256": "c0585586bebfbc1d7b973e381f44ebfce44edeb19bfb1c39ba1479f56b7e3c7e"
     }
   ],
   "formatVersion": 1
