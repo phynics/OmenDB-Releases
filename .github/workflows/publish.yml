@@ -1,7 +1,7 @@
 name: Publish OmenDB bundles
 
-# Builds OmenDB distribution bundles (OmenBuilder ticket 0098) and publishes them as GitHub
-# Releases of this repo, then points channels/stable.json at them (ticket 0099, proposal F3).
+# Builds OmenDB distribution bundles and publishes them as GitHub Releases of this repo, then
+# points channels/stable.json at them.
 #
 # Triggers:
 # - archive-release (sent by OmenArchive's notify workflow when a release is published):

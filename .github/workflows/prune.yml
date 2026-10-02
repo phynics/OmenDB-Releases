@@ -1,6 +1,6 @@
 name: Prune unsupported contracts
 
-# Weekly (ticket 0099): removes channel entries for contracts that omendb-contracts.json no longer
+# Weekly: removes channel entries for contracts that omendb-contracts.json no longer
 # lists, keeping the newest KEEP of them, and deletes the releases of the contracts it removed.
 # To retire an app build's contract, delete its entry from omendb-contracts.json.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release tooling for OmenDB distribution bundles (ticket 0099, proposal F).
+"""Release tooling for OmenDB distribution bundles.
 
 Subcommands:
   check-bundle  <bundle-dir>                      fail unless the bundle is complete and clean
