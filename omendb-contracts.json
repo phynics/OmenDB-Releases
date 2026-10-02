@@ -3,6 +3,10 @@
     {
       "digest": "33b66f34cd80b0c6046c6297007501588ca7997a132ff69d32f7278fd9ec029a",
       "omenBuilderRev": "ecf6a693465f25120ec92b523644d0a8a6e26ce8"
+    },
+    {
+      "digest": "d5ee88ee08991d74d4cb0115b1140e0f9b6b3280cdfaf059e286baff101a2d0e",
+      "omenBuilderRev": "3d4b99bb7a61e1e5a318c258d6d8590b60769305"
     }
   ]
 }
