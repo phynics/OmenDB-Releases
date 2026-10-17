@@ -34,6 +34,7 @@ def dump(path, value):
 
 def compatibility_key(manifest):
     return {
+        "epoch": manifest["epoch"],
         "schemaVersion": manifest["schemaVersion"],
         "resourceModelRevision": manifest["resourceModelRevision"],
         "mechanicsContractDigest": manifest["mechanicsContractDigest"],
@@ -131,9 +132,11 @@ def update_channel(args):
         "storeSHA256": manifest["store"]["sha256"],
         "builtAt": manifest["builtAt"],
     })
-    others = [existing for existing in channel["entries"] if {k: existing[k] for k in key} != key]
+    # An entry without an epoch was built before epochs; apps reject a channel that lists one.
+    current = [existing for existing in channel["entries"] if "epoch" in existing]
+    others = [existing for existing in current if {k: existing[k] for k in key} != key]
     channel["entries"] = sorted(others + [entry], key=lambda item: (
-        item["mechanicsContractDigest"], item["schemaVersion"], item["resourceModelRevision"]))
+        item["mechanicsContractDigest"], item["epoch"], item["schemaVersion"], item["resourceModelRevision"]))
     dump(channel_path, channel)
     print(f"channel: {contract8(manifest['mechanicsContractDigest'])} -> {args.manifest_url}")
 
@@ -142,12 +145,13 @@ def prune(args):
     contracts = load(args.contracts)
     supported = {entry["digest"] for entry in contracts["contracts"]}
     channel = load(args.channel)
+    channel["entries"] = [entry for entry in channel["entries"] if "epoch" in entry]
     unsupported = [entry for entry in channel["entries"] if entry["mechanicsContractDigest"] not in supported]
     unsupported.sort(key=lambda entry: entry["builtAt"], reverse=True)
     keep = unsupported[: args.keep]
     channel["entries"] = sorted(
         [entry for entry in channel["entries"] if entry["mechanicsContractDigest"] in supported] + keep,
-        key=lambda item: (item["mechanicsContractDigest"], item["schemaVersion"], item["resourceModelRevision"]))
+        key=lambda item: (item["mechanicsContractDigest"], item["epoch"], item["schemaVersion"], item["resourceModelRevision"]))
     dump(args.channel, channel)
     dropped = len(unsupported) - len(keep)
     print(f"pruned {dropped} channel entries for unsupported contracts, kept {len(keep)}")
