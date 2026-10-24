@@ -11,6 +11,10 @@
     {
       "digest": "1712211de5b9fb43a767f94338a229817de73baf3e4f7ed44b969cffdf1588f4",
       "omenBuilderRev": "3d1d473802350a2912ad779f6bbcebd146dedc21"
+    },
+    {
+      "digest": "b850c553304c7336c51f9e3bee7ac61ea4640a454b3f78d5282ffe68c7ba68e7",
+      "omenBuilderRev": "a68078148da214f2e2dcdb9f708d86208610f116"
     }
   ]
 }
