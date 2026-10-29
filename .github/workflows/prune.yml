@@ -21,12 +21,28 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: phynics/omen-monorepo
+          ref: main
+          path: tooling
+          sparse-checkout: tools/OmenDevTools
+          token: ${{ secrets.OMEN_CI_READ_TOKEN }}
+      - name: Select Xcode 27
+        run: |
+          xcode=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$xcode" ]; then
+            echo "::error::No Xcode 27 on this runner. Installed:"; ls -d /Applications/Xcode*.app; exit 1
+          fi
+          sudo xcode-select -s "$xcode"
+      - name: Build the release tools
+        run: swift build -c release --package-path tooling/tools/OmenDevTools --product omen-dev
       - name: Prune the channel and old releases
         run: |
           set -euo pipefail
-          before=$(python3 -c 'import json; print(" ".join(sorted({e["mechanicsContractDigest"] for e in json.load(open("channels/stable.json"))["entries"]})))')
-          python3 scripts/omendb_release.py prune omendb-contracts.json channels/stable.json --keep "$KEEP"
-          after=$(python3 -c 'import json; print(" ".join(sorted({e["mechanicsContractDigest"] for e in json.load(open("channels/stable.json"))["entries"]})))')
+          before=$(jq -r '[.entries[].mechanicsContractDigest] | unique | join(" ")' channels/stable.json)
+          "$PWD/tooling/tools/OmenDevTools/.build/release/omen-dev" omendb-release prune omendb-contracts.json channels/stable.json --keep "$KEEP"
+          after=$(jq -r '[.entries[].mechanicsContractDigest] | unique | join(" ")' channels/stable.json)
           for digest in $before; do
             case " $after " in *" $digest "*) continue ;; esac
             prefix="omendb/$(printf '%s' "$digest" | shasum -a 256 | cut -c1-8)/"
