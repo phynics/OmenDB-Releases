@@ -44,7 +44,7 @@ The maintainer builds and publishes releases by hand, with the monorepo's `omen-
 commands (`check-bundle`, `tag`, `notes`, `update-channel`, `prune`); there is no Python here and no
 hosted CI. Builds run on macOS (SwiftData), from a clean archive only. Nothing is published unless
 every build succeeds. `prune` drops channel entries for contracts no longer listed, keeping the
-newest three, and deletes those contracts' releases.
+newest three; the maintainer then deletes those contracts' releases.
 
 Apps read the channel from
 `https://raw.githubusercontent.com/phynics/OmenDB-Releases/main/channels/stable.json`.
