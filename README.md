@@ -19,11 +19,10 @@ maintainer.
 
 `omenBuilderRev` is a commit of the private workspace repository, built from its builder directory.
 The three oldest entries (`ecf6a693`, `3d4b99bb`, `3d1d4738`) are commits of the retired builder
-repository and don't exist in the workspace repository. `publish.yml` skips them when it plans an
-`archive-release` build and says so in the run; their channel entries keep the last release
-built. To rebuild one, check out that commit from the archived builder repository by hand, with
-the sibling checkouts its own workspace lock names, and run its `omendb-build` the way the
-runbook describes. The next contract added with `app-contract` is always a commit of the workspace repository.
+repository and don't exist in the workspace repository. Releases don't rebuild them; their channel
+entries keep the last release built. To rebuild one, check out that commit from the archived builder
+repository by hand, with the sibling checkouts its own workspace lock names, and run its
+`omendb-build` the way the runbook describes. The next contract added is always a commit of the workspace repository.
 
 ## Releases
 
@@ -39,29 +38,13 @@ A release is tagged `omendb/<contract8>/<archive-date>-<content8>` and holds:
 The release notes list the count changes and the records removed since the previous release of
 the same contract. Saved characters that used removed records lose those selections.
 
-## Workflows
+## Publishing
 
-- **`publish.yml`** builds and publishes. It runs on:
-  - `repository_dispatch` `archive-release`, which OmenArchive sends when a release is published
-    (payload `archive_ref`). It builds every supported contract from that tag.
-  - `repository_dispatch` `app-contract` (payload `omenbuilder_rev`, optional `archive_ref`). It
-    builds one OmenBuilder commit from the latest archive release and adds its contract.
-  - `workflow_dispatch` with the same inputs.
-
-  The workflows run the release tools with the monorepo's `omen-dev omendb-release` commands
-  (`check-bundle`, `tag`, `notes`, `update-channel`, `prune`); there is no Python here. Builds run
-  on macOS (SwiftData), from a clean archive only. Nothing is published unless every
-  build succeeds.
-- **`prune.yml`** runs weekly. It drops channel entries for contracts no longer listed, keeping
-  the newest three, and deletes those contracts' releases.
-
-## Setup (owner)
-
-1. Create the GitHub repo `phynics/OmenDB-Releases` and push this directory.
-2. Add the secret `OMEN_CI_READ_TOKEN`: read access to the private workspace repository and OmenArchive.
-3. In OmenArchive, add the secret `OMENDB_RELEASES_DISPATCH_TOKEN`, a token that can send
-   `repository_dispatch` events to this repo. Its `notify-omendb-releases.yml` workflow uses it.
-4. Run `publish.yml` once by hand to publish the first bundle and fill the channel.
+The maintainer builds and publishes releases by hand, with the monorepo's `omen-dev omendb-release`
+commands (`check-bundle`, `tag`, `notes`, `update-channel`, `prune`); there is no Python here and no
+hosted CI. Builds run on macOS (SwiftData), from a clean archive only. Nothing is published unless
+every build succeeds. `prune` drops channel entries for contracts no longer listed, keeping the
+newest three, and deletes those contracts' releases.
 
 Apps read the channel from
 `https://raw.githubusercontent.com/phynics/OmenDB-Releases/main/channels/stable.json`.
