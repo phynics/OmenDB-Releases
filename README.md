@@ -7,9 +7,11 @@ maintainer.
 ## Files
 
 - **`channels/stable.json`**: the channel index apps fetch. One entry per compatibility key
-  `(schemaVersion, resourceModelRevision, mechanicsContractDigest)`, pointing at the newest
+  `(epoch, schemaVersion, resourceModelRevision, mechanicsContractDigest)`, pointing at the newest
   release's `manifest.json`, with its content hash, archive commit and store SHA-256. Apps accept
-  only an exact key match.
+  only an exact key match. The channel can hold entries for several keys and several epochs at
+  once: an app reads only the entry whose key matches its own and ignores entries for another
+  epoch, and an app that finds only a newer key is told to update the app.
 - **`omendb-contracts.json`**: the contracts still supported. Each entry names the contract
   digest and the commit that produces it: a bundle for a contract is built with that commit's
   `omendb-build`. Delete an entry to retire an app build's contract. Every digest in
