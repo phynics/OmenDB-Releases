@@ -27,6 +27,10 @@
     {
       "digest": "f1bce457b58c3966526bc0ca030d3da157e409b61c16ec1e41b959d5e0d66b2b",
       "omenBuilderRev": "87f734e3744e5dd9d508a77ffac16575ddbaeea5"
+    },
+    {
+      "digest": "2ebbe0b43f40c242ef4dbb62182d6f276ba5d9a0b2d45a0d6314aa1896ee0b35",
+      "omenBuilderRev": "cf8720d571dae3335106275bd6625aa00a82e203"
     }
   ]
 }
