@@ -39,6 +39,10 @@
     {
       "digest": "fe1e34f1f212de8a5777a27b390dfa5fd5776009c22933079aeb1c5c296d1524",
       "omenBuilderRev": "5e98d63d7d927c1d0794121aefe81b95cdbff57c"
+    },
+    {
+      "digest": "2e504c794e123466682240ad6ed02a2b958ce345ed070817070ff61707805892",
+      "omenBuilderRev": "b86ce93840e8482ba8330da2ce28dea9a031b15a"
     }
   ]
 }
