@@ -43,6 +43,10 @@
     {
       "digest": "2e504c794e123466682240ad6ed02a2b958ce345ed070817070ff61707805892",
       "omenBuilderRev": "b86ce93840e8482ba8330da2ce28dea9a031b15a"
+    },
+    {
+      "digest": "6cc7bd7c30622127044209e57235b71d0c4812284159333262ca27c0ebd8d506",
+      "omenBuilderRev": "710a6ab94edb969d389d98f9ebf3904a0c7c2a81"
     }
   ]
 }
